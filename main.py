@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*
 import apriltag     
 import cv2
 import numpy as np
@@ -21,9 +22,9 @@ def RotateByX(Cy, Cz, thetaX):
     return outY, outZ
    
 
-cameraParams_Intrinsic = [1249,1249,303,231]  # camera_fx, camera_fy, camera_cx, camera_cy 
-camera_matrix = np.array(([1249.9, 0, 302.5],
-                         [0, 1248.7, 231.1],
+cameraParams_Intrinsic = [591,591,321,245]  # camera_fx, camera_fy, camera_cx, camera_cy 
+camera_matrix = np.array(([591.280996, 0, 321.754492],
+                         [0, 591.853914, 245.866165],
                          [0, 0, 1.0]), dtype=np.double)
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
@@ -43,13 +44,20 @@ while( cap.isOpened() ):
         cv2.circle(img, tuple(tag.corners[2].astype(int)), 4,(0,0,255), 2) # right-bottom
         cv2.circle(img, tuple(tag.corners[3].astype(int)), 4,(0,0,255), 2) # left-bottom
         cv2.circle(img, tuple(tag.center.astype(int)), 4,(0,0,255), 2) #center
+        #print(position_center)
+        cv2.putText(img,str(tag.tag_id),tuple(tag.center.astype(int)),cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 5)
         #cv2.circle(img, tuple(tag.center.a, 4,(0,0,255), 2) # left-bottom         
         #print(tag.tag_id)   #output the tag_id
         # print(tag.center)
-        object_3d_points = np.array(([-6.3, 6.3, 0],
+        '''object_3d_points = np.array(([-6.3, 6.3, 0],
                                     [6.3, 6.3, 0],
                                     [6.3, -6.3, 0],
                                     [-6.3,-6.3, 0]),
+                                    dtype=np.double)'''    # Apriltag coordinates in the World coordinate system
+        object_3d_points = np.array(([-7.3, 7.3, 0],
+                                    [7.3, 7.3, 0],
+                                    [7.3, -7.3, 0],
+                                    [-7.3,-7.3, 0]),
                                     dtype=np.double)    # Apriltag coordinates in the World coordinate system
 
         object_2d_point = np.array((tag.corners[0].astype(int),
@@ -58,7 +66,7 @@ while( cap.isOpened() ):
                                     tag.corners[3].astype(int)),
                                     dtype=np.double)    # Apriltag coordinates in the Image pixel system
 
-        dist_coefs = np.array([-0.4701,6.4501,-0.0032,-0.005,-48.505], dtype=np.double)    # Distortion coefficient: k1, k2, p1, p2, k3
+        dist_coefs = np.array([0.09725213,-0.08208706,0.00204942,-0.00821362,-0.18558094], dtype=np.double)    # Distortion coefficient: k1, k2, p1, p2, k3
 
         found, rvec, tvec = cv2.solvePnP(object_3d_points, object_2d_point, camera_matrix, dist_coefs)  #rvec-旋转向量  tvec-平移向量
         rotM = cv2.Rodrigues(rvec)[0]   #旋转向量转换为旋转矩阵
@@ -82,7 +90,7 @@ while( cap.isOpened() ):
         Cz = z*-1
     
         #print("camera position:",Cx, Cy, Cz)       
-        print("camera rotation:", thetaX, thetaY, thetaZ)  
+        #print("camera rotation:", thetaX+180, thetaY, thetaZ)  
         #print("camera rotation:", thetaX)
         #print("camera position:",Cx)     
     # Extra points for debug the accuracy
