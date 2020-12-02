@@ -1,98 +1,84 @@
-# coding=utf-8
-import apriltag     
-import cv2
+import apriltag
+import cv2 as cv
 import numpy as np
+import threading
 import sys
-import math
-def RotateByZ(Cx, Cy, thetaZ):
-    rz = thetaZ*math.pi/180.0
-    outX = math.cos(rz)*Cx - math.sin(rz)*Cy
-    outY = math.sin(rz)*Cx + math.cos(rz)*Cy
-    return outX, outY
-def RotateByY(Cx, Cz, thetaY):
-    ry = thetaY*math.pi/180.0
-    outZ = math.cos(ry)*Cz - math.sin(ry)*Cx
-    outX = math.sin(ry)*Cz + math.cos(ry)*Cx
-    return outX, outZ
-def RotateByX(Cy, Cz, thetaX):
-    rx = thetaX*math.pi/180.0
-    outY = math.cos(rx)*Cy - math.sin(rx)*Cz
-    outZ = math.sin(rx)*Cy + math.cos(rx)*Cz
-    return outY, outZ
-   
+import Adafruit_PCA9685
+import time
 
-cameraParams_Intrinsic = [591,591,321,245]  # camera_fx, camera_fy, camera_cx, camera_cy 
-camera_matrix = np.array(([591.280996, 0, 321.754492],
-                         [0, 591.853914, 245.866165],
-                         [0, 0, 1.0]), dtype=np.double)
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH,640)
-# cap.set(cv2.CAP_PROP_BRIGHTNESS, 5)
-tag_detector = apriltag.Detector(apriltag.DetectorOptions(families='tag36h11'))  # Build a detector for apriltag
-while( cap.isOpened() ):
-    ret, img = cap.read()
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)    # The image must be a grayscale image of type numpy.uint8
-    key = cv2.waitKey(45)
+pwm = Adafruit_PCA9685.PCA9685()
+pwm.set_pwm_freq(50)
+
+cap = cv.VideoCapture(0)
+cap.set(3, 640)
+cap.set(4, 480)
+at_detector =  apriltag.Detector(apriltag.DetectorOptions(families='tag36h11'))
+index = 1
+
+lastError_x = 0
+lastError_y = 0
+w_center = 320
+h_center = 240
+x_dutyCircle = 435
+y_dutyCircle = 220
+para_x = [lastError_x, x_dutyCircle, w_center]
+para_y = [lastError_y, y_dutyCircle, h_center]
+
+pwm.set_pwm(9, 0, 435)
+time.sleep(0.1)
+pwm.set_pwm(8, 0, 220)
+
+
+def set_pwm(center_param, list2):
+    err = list2[2] - center_param
+    print('err = ' + str(err))
+    pwm_v = err * 0.04 + 0.001 * (err - list2[0])
+    list2[0] = err
+    list2[1] += pwm_v
+    # if list2[1] > 13:
+    #     list2[1] = 12
+    # if list2[1] < 2.5:
+    #     list2[1] = 3
+
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    # frame = cv.flip(frame, 1, dst=None)
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    tags = at_detector.detect(gray)
+    key = cv.waitKey(45)
     if key & 0x00FF == 27:
         break
-    tags = tag_detector.detect( gray)
+    elif key == ord('s'):
+        cv.imwrite('D:/imageTemp/' + str(index) + '.jpg', frame)
+        index += 1
     for tag in tags:
-        cv2.circle(img, tuple(tag.corners[0].astype(int)), 4,(0,0,255), 2) # left-top
-        cv2.circle(img, tuple(tag.corners[1].astype(int)), 4,(0,0,255), 2) # right-top
-        cv2.circle(img, tuple(tag.corners[2].astype(int)), 4,(0,0,255), 2) # right-bottom
-        cv2.circle(img, tuple(tag.corners[3].astype(int)), 4,(0,0,255), 2) # left-bottom
-        cv2.circle(img, tuple(tag.center.astype(int)), 4,(0,0,255), 2) #center
-        #cv2.circle(img, tuple(tag.center.a, 4,(0,0,255), 2) # left-bottom         
-        #print(tag.tag_id)   #output the tag_id
-        # print(tag.center)
-        '''object_3d_points = np.array(([-6.3, 6.3, 0],
-                                    [6.3, 6.3, 0],
-                                    [6.3, -6.3, 0],
-                                    [-6.3,-6.3, 0]),
-                                    dtype=np.double)'''    # Apriltag coordinates in the World coordinate system
-        object_3d_points = np.array(([-7.3, 7.3, 0],
-                                    [7.3, 7.3, 0],
-                                    [7.3, -7.3, 0],
-                                    [-7.3,-7.3, 0]),
-                                    dtype=np.double)    # Apriltag coordinates in the World coordinate system
+        # cv.circle(frame, tuple(tag.corners[0].astype(int)), 4, (255, 0, 0), 2)
+        # cv.circle(frame, tuple(tag.corners[1].astype(int)), 4, (255, 0, 0), 2)
+        # cv.circle(frame, tuple(tag.corners[2].astype(int)), 4, (255, 0, 0), 2)
+        # cv.circle(frame, tuple(tag.corners[3].astype(int)), 4, (255, 0, 0), 2)
+        # cv.circle(frame, tuple(tag.center.astype(int)), 4, (0, 255, 0), 2)
+        cx = tag.center[0].astype(int)
+        cy = tag.center[1].astype(int)
+        print(cx,cy)
 
-        object_2d_point = np.array((tag.corners[0].astype(int),
-                                    tag.corners[1].astype(int),
-                                    tag.corners[2].astype(int),
-                                    tag.corners[3].astype(int)),
-                                    dtype=np.double)    # Apriltag coordinates in the Image pixel system
+        threads = []
+        t1 = threading.Thread(target=set_pwm, args=(tag.center[0], para_x))
+        threads.append(t1)
+        t2 = threading.Thread(target=set_pwm, args=(tag.center[1], para_y))
+        threads.append(t2)
 
-        dist_coefs = np.array([0.09725213,-0.08208706,0.00204942,-0.00821362,-0.18558094], dtype=np.double)    # Distortion coefficient: k1, k2, p1, p2, k3
+        for t in threads:
+            t.setDaemon(True)
+            t.start()
+            t.join()
 
-        found, rvec, tvec = cv2.solvePnP(object_3d_points, object_2d_point, camera_matrix, dist_coefs)  #rvec-旋转向量  tvec-平移向量
-        rotM = cv2.Rodrigues(rvec)[0]   #旋转向量转换为旋转矩阵
-        # print(rotM)
-        # print('--------------------------')
-        # print(cv2.Rodrigues(rvec))
-        camera_postion = -np.matrix(rotM).T * np.matrix(tvec)
-        #通过旋转矩阵计算欧拉角
-        thetaZ = math.atan2(rotM[1, 0], rotM[0, 0])*180.0/math.pi
-        thetaY = math.atan2(-1.0*rotM[2, 0], math.sqrt(rotM[2, 1]**2 + rotM[2, 2]**2))*180.0/math.pi
-        thetaX = math.atan2(rotM[2, 1], rotM[2,2])*180.0/math.pi
-    
-        x = tvec[0]
-        y = tvec[1]
-        z = tvec[2]
-        (x, y) = RotateByZ(x, y, -1.0*thetaZ)
-        (x, z) = RotateByY(x, z, -1.0*thetaY)
-        (y, z) = RotateByX(y, z, -1.0*thetaX)
-        Cx = x*-1
-        Cy = y*-1
-        Cz = z*-1
-    
-        print("camera position:",Cx, Cy, Cz)       
-        #print("camera rotation:", thetaX+180, thetaY, thetaZ)  
-        #print("camera rotation:", thetaX)
-        #print("camera position:",Cx)     
-    # Extra points for debug the accuracy
-       
-    cv2.imshow('capture', img)
-    
+        print('X_Duty->' + str(para_x[1]))
+        print('Y_Duty->' + str(para_y[1]))
+        pwm.set_pwm(8, 0, para_y[1].astype(int))
+        time.sleep(0.1)
+        # pwm.set_pwm(9, 0, 950 - para_x[1].astype(int))
+
+    cv.imshow('capture', frame)
 cap.release()
-cv2.destroyAllWindows()
+cv.destroyWindow()
