@@ -56,8 +56,8 @@ def fire():
     time.sleep(0.3)
     GPIO.output(18, GPIO.LOW)
     
-def shoot_byorder(n1,n2,n3):
-    shoot_order=[n1,n2,n3]
+def shoot_byorder(s_order):
+    shoot_order=s_order
     global pwm_x_flag
     global pwm_y_flag
     while cap.isOpened():
@@ -113,6 +113,6 @@ def shoot_byorder(n1,n2,n3):
                     pwm_x_flag = 0
                     pwm_y_flag = 0
         cv.imshow('capture', frame)
-shoot_byorder(1,2,3)
+shoot_byorder([1,2,3])
 cap.release()
 cv.destroyAllWindows()
